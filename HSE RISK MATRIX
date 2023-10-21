@@ -1,0 +1,120 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import tkinter as tk
+from tkinter import ttk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.colors import ListedColormap, Normalize
+from sklearn.ensemble import RandomForestClassifier
+
+# Risk rating labels
+risk_labels = ["Low", "Medium", "Medium High", "High", "Extreme High"]
+
+# Create a function to update the risk matrix
+def update_risk_matrix():
+    likelihood = likelihood_var.get()
+    consequence = consequence_var.get()
+    risk_val = likelihood * consequence
+    risk_matrix[likelihood - 1, consequence - 1] = risk_val
+    update_heatmap()
+    update_risk_level()
+    update_predicted_risk()
+
+# Create a function to update the heatmap
+def update_heatmap():
+    heatmap.set_data(risk_matrix)
+    heatmap.set_clim(vmin=np.min(risk_matrix), vmax=np.max(risk_matrix))
+    canvas.draw()
+
+# Create a function to update the risk level based on responses
+def update_risk_level():
+    total_score = risk_matrix[likelihood_var.get() - 1, consequence_var.get() - 1]
+    if 1 <= total_score <= 6:
+        risk_level.set(risk_labels[0])
+    elif 7 <= total_score <= 9:
+        risk_level.set(risk_labels[1])
+    elif 10 <= total_score <= 16:
+        risk_level.set(risk_labels[2])
+    elif 17 <= total_score <= 20:
+        risk_level.set(risk_labels[3])
+    elif 21 <= total_score <= 25:
+        risk_level.set(risk_labels[4])
+
+# Create a function to update the predicted risk level using AI
+def update_predicted_risk():
+    likelihood_val = likelihood_var.get()
+    consequence_val = consequence_var.get()
+    predicted_risk = risk_classifier.predict([[likelihood_val, consequence_val]])
+    predicted_risk_level.set(risk_labels[predicted_risk[0]])
+
+# Create a function to reset the risk matrix
+def reset_risk_matrix():
+    likelihood_var.set(1)
+    consequence_var.set(1)
+    risk_matrix.fill(0)
+    update_heatmap()
+    risk_level.set("")
+    predicted_risk_level.set("")
+
+# Initialize the tkinter window
+root = tk.Tk()
+root.title("SLAM / HIRAC Risk Matrix")
+
+# Create the likelihood and consequence dropdowns
+likelihood_label = ttk.Label(root, text="Likelihood")
+likelihood_label.grid(row=0, column=0)
+likelihood_var = tk.IntVar(value=1)
+likelihood_dropdown = ttk.Combobox(root, textvariable=likelihood_var, values=[1, 2, 3, 4, 5])
+likelihood_dropdown.grid(row=0, column=1)
+
+consequence_label = ttk.Label(root, text="Consequence")
+consequence_label.grid(row=0, column=2)
+consequence_var = tk.IntVar(value=1)
+consequence_dropdown = ttk.Combobox(root, textvariable=consequence_var, values=[1, 2, 3, 4, 5])
+consequence_dropdown.grid(row=0, column=3)
+
+# Add a label to display the calculated risk level
+risk_level = tk.StringVar()
+ttk.Label(root, text="Risk Level:").grid(row=1, column=0, columnspan=2)
+ttk.Label(root, textvariable=risk_level).grid(row=1, column=2, columnspan=3)
+
+# Add a label to display the predicted risk level
+predicted_risk_level = tk.StringVar()
+ttk.Label(root, text="Predicted Risk Level:").grid(row=2, column=0, columnspan=2)
+ttk.Label(root, textvariable=predicted_risk_level).grid(row=2, column=2, columnspan=3)
+
+# Add a button to submit the risk assessment
+submit_button = ttk.Button(root, text="Submit Risk Assessment", command=update_risk_matrix)
+submit_button.grid(row=3, column=0, columnspan=4)
+
+# Add a reset button
+reset_button = ttk.Button(root, text="Reset Matrix", command=reset_risk_matrix)
+reset_button.grid(row=4, column=0, columnspan=4)
+
+# Create a figure and heatmap
+fig = plt.figure(figsize=(6, 6))
+ax = fig.add_subplot(111)
+ax.set_xticks(range(5))
+ax.set_yticks(range(5))
+ax.set_xticklabels(["Low", "Moderate", "Significant", "Major", "Critical"])
+ax.set_yticklabels(["Low", "Moderate", "Significant", "Major", "Critical"])
+
+risk_matrix = np.zeros((5, 5))
+heatmap = ax.matshow(risk_matrix, cmap=ListedColormap(['green', 'yellow', 'orange', 'red', 'darkred']),
+                     interpolation='nearest', norm=Normalize(vmin=0, vmax=25))
+
+ax.set_aspect('equal')
+ax.invert_yaxis()
+
+canvas = FigureCanvasTkAgg(fig, master=root)
+canvas_widget = canvas.get_tk_widget()
+canvas_widget.grid(row=5, column=0, columnspan=4)
+
+# AI-based predictive risk assessment using a Random Forest Classifier
+risk_data = np.array([[1, 1, 1], [2, 2, 1], [2, 3, 2], [3, 3, 2], [4, 4, 3], [4, 5, 4], [5, 5, 4]])
+X = risk_data[:, :-1]
+y = risk_data[:, -1]
+risk_classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+risk_classifier.fit(X, y)
+
+# Start the tkinter main loop
+root.mainloop()
